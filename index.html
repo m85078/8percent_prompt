@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -112,6 +113,21 @@ header{position:sticky;top:0;z-index:100;background:rgba(248,246,240,.92);backdr
 .h-del:hover{color:#E24B4A;}
 .no-history{font-size:12px;color:var(--ink-3);font-style:italic;}
 
+.zone-sep{
+  display:flex;align-items:center;gap:10px;
+  padding:0 20px;
+  font-size:10.5px;letter-spacing:.06em;color:var(--ink-3);
+  border-top:1px dashed var(--line);
+  padding-top:10px;margin-top:4px;
+}
+.zone-sep::after{content:'';flex:1;height:1px;background:var(--line);margin-left:6px;}
+.prompt-textarea.custom{
+  border-top:none;
+  min-height:80px;
+  font-size:14px;
+  color:var(--ink-2);
+}
+
 @media(max-width:960px){
   .layout{grid-template-columns:1fr;}
   .left{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--line);}
@@ -144,11 +160,12 @@ header{position:sticky;top:0;z-index:100;background:rgba(248,246,240,.92);backdr
     <div class="section-label">완성된 프롬프트</div>
     <div class="prompt-card">
       <div class="prompt-toolbar">
-        <div class="prompt-mode" style="display:none;"></div>
-        <button class="reassemble-btn" id="obj-reassemble" onclick="objReassemble()">↺ 자동 조립으로 되돌리기</button>
+        <div style="font-size:11px;color:var(--ink-3);">블록 선택이 자동으로 반영됩니다</div>
         <span></span>
       </div>
-      <textarea class="prompt-textarea" id="obj-ta" placeholder="카테고리부터 선택해주세요." oninput="objDirty()" onkeyup="objCountUpdate()"></textarea>
+      <textarea class="prompt-textarea" id="obj-ta" placeholder="카테고리부터 선택해주세요." onkeyup="objCountUpdate()"></textarea>
+      <div class="zone-sep">직접 추가</div>
+      <textarea class="prompt-textarea custom" id="obj-custom" placeholder="블록 외에 추가할 내용을 자유롭게 입력하세요. 블록 선택에 영향받지 않습니다." onkeyup="objCountUpdate()"></textarea>
       <div class="prompt-footer">
         <span class="char-count" id="obj-count">—</span>
         <div class="action-row">
@@ -175,11 +192,12 @@ header{position:sticky;top:0;z-index:100;background:rgba(248,246,240,.92);backdr
     <div class="section-label">완성된 프롬프트</div>
     <div class="prompt-card">
       <div class="prompt-toolbar">
-        <div class="prompt-mode" style="display:none;"></div>
-        <button class="reassemble-btn" id="sc-reassemble" onclick="scReassemble()">↺ 자동 조립으로 되돌리기</button>
+        <div style="font-size:11px;color:var(--ink-3);">블록 선택이 자동으로 반영됩니다</div>
         <span></span>
       </div>
-      <textarea class="prompt-textarea" id="sc-ta" placeholder="배경 환경부터 선택해주세요." oninput="scDirty()" onkeyup="scCountUpdate()"></textarea>
+      <textarea class="prompt-textarea" id="sc-ta" placeholder="배경 환경부터 선택해주세요." onkeyup="scCountUpdate()"></textarea>
+      <div class="zone-sep">직접 추가</div>
+      <textarea class="prompt-textarea custom" id="sc-custom" placeholder="블록 외에 추가할 내용을 자유롭게 입력하세요. 블록 선택에 영향받지 않습니다." onkeyup="scCountUpdate()"></textarea>
       <div class="prompt-footer">
         <span class="char-count" id="sc-count">—</span>
         <div class="action-row">
@@ -256,6 +274,7 @@ const OBJ_HINTS = {오브제:'카테고리 먼저', 제외:'복수 선택'};
 const objSt = {카테고리:[],오브제:[],형태:[],구도:[],빛:[],표면:[],색상:[],배경:[],제외:[]};
 const objOpen = {카테고리:true};
 let objDirtyFlag = false;
+let objLastAutoText = '';
 const objHist = [];
 
 function objGetOpts(k){
@@ -337,36 +356,33 @@ function objBuildPlain(){
 }
 
 function objUpdatePrompt(){
-  if(objDirtyFlag) return;
   const ta=document.getElementById('obj-ta');
   const txt=objBuildPlain();
   ta.value=txt;
-  ta.placeholder = txt ? '' : '카테고리부터 선택해주세요.';
+  ta.placeholder=txt?'':'카테고리부터 선택해주세요.';
   objCountUpdate();
 }
 function objCountUpdate(){
+  const a=document.getElementById('obj-ta').value.trim();
+  const b=document.getElementById('obj-custom').value.trim();
+  const total=(a+(b?b:'')).length;
+  document.getElementById('obj-count').textContent=total?`${total}자`:'—';
   const ta=document.getElementById('obj-ta');
-  document.getElementById('obj-count').textContent = ta.value ? `${ta.value.length}자` : '—';
-  ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
+  ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';
 }
-function objDirty(){
-  objDirtyFlag=true;
-  document.getElementById('obj-reassemble').classList.add('visible');
-  objCountUpdate();
+function objCombined(){
+  const a=document.getElementById('obj-ta').value.trim();
+  const b=document.getElementById('obj-custom').value.trim();
+  return b?a+' '+b:a;
 }
-function objReassemble(){
-  objDirtyFlag=false;
-  document.getElementById('obj-reassemble').classList.remove('visible');
-  objUpdatePrompt();
-}
-function objCopy(){ const ta=document.getElementById('obj-ta'); if(!ta.value) return; navigator.clipboard.writeText(ta.value).then(()=>{ const b=document.getElementById('obj-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function objSave(){ const ta=document.getElementById('obj-ta'); if(!ta.value) return; objHist.unshift({cat:objSt.카테고리,obj:objSt.오브제,text:ta.value}); objRenderHist(); }
+function objCopy(){ const t=objCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('obj-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
+function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({cat:objSt.카테고리.join('·'),obj:objSt.오브제.join('·'),text:t}); objRenderHist(); }
 function objRenderHist(){
   const el=document.getElementById('obj-hist');
   if(!objHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
   el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objHist.splice(${i},1);objRenderHist()">×</span></div>`).join('');
 }
-function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); objDirtyFlag=false; document.getElementById('obj-reassemble').classList.remove('visible'); objRender(); }
+function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); document.getElementById('obj-custom').value=''; objRender(); }
 
 /* ═══════════════════════════════════════
    DATA — 상황 묘사
@@ -400,6 +416,7 @@ const SC_HINTS = {핵심요소:'가장 눈에 띌 것'};
 const scSt = {환경:[],핵심요소:[],시간대:[],조명:[],색감:[],앵글:[],분위기:[],제외:[]};
 const scOpen = {환경:true};
 let scDirtyFlag = false;
+let scLastAutoText = '';
 const scHist = [];
 
 function scGetOpts(k){
@@ -469,21 +486,26 @@ function scBuildPlain(){
 }
 
 function scUpdatePrompt(){
-  if(scDirtyFlag) return;
   const ta=document.getElementById('sc-ta');
   const txt=scBuildPlain();
   ta.value=txt;
   scCountUpdate();
 }
 function scCountUpdate(){
+  const a=document.getElementById('sc-ta').value.trim();
+  const b=document.getElementById('sc-custom').value.trim();
+  const total=(a+(b?b:'')).length;
+  document.getElementById('sc-count').textContent=total?`${total}자`:'—';
   const ta=document.getElementById('sc-ta');
-  document.getElementById('sc-count').textContent=ta.value?`${ta.value.length}자`:'—';
-  ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
+  ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';
 }
-function scDirty(){ scDirtyFlag=true; document.getElementById('sc-reassemble').classList.add('visible'); scCountUpdate(); }
-function scReassemble(){ scDirtyFlag=false; document.getElementById('sc-reassemble').classList.remove('visible'); scUpdatePrompt(); }
-function scCopy(){ const ta=document.getElementById('sc-ta'); if(!ta.value) return; navigator.clipboard.writeText(ta.value).then(()=>{ const b=document.getElementById('sc-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function scSave(){ const ta=document.getElementById('sc-ta'); if(!ta.value) return; scHist.unshift({env:scSt.환경,elem:scSt.핵심요소,text:ta.value}); scRenderHist(); }
+function scCombined(){
+  const a=document.getElementById('sc-ta').value.trim();
+  const b=document.getElementById('sc-custom').value.trim();
+  return b?a+' '+b:a;
+}
+function scCopy(){ const t=scCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('sc-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
+function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); scRenderHist(); }
 function scRenderHist(){
   const el=document.getElementById('sc-hist');
   if(!scHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
@@ -496,7 +518,7 @@ function scUpdateSummary(){
     return `<div class="s-block"><div class="s-key">${l}</div><div class="s-val${v?'':' empty'}">${v||'—'}</div></div>`;
   }).join('');
 }
-function scReset(){ Object.keys(scSt).forEach(k=>{scSt[k]=[];}); scDirtyFlag=false; document.getElementById('sc-reassemble').classList.remove('visible'); scRender(); }
+function scReset(){ Object.keys(scSt).forEach(k=>{scSt[k]=[];}); document.getElementById('sc-custom').value=''; scRender(); }
 
 /* ── UTIL ── */
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
