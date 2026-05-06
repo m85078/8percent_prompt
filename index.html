@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>에잇퍼센트 · 프롬프트 빌더</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#5A0ADE;--purple-light:#EDE4FF;--purple-mid:#7B3AEE;
+  --ink:#111014;--ink-2:#3A3842;--ink-3:#7A7884;
+  --line:#E5E3DE;--line-2:#D8D5CE;--bg:#F8F6F0;--bg-2:#fff;--r:6px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;line-height:1.6;font-weight:300;-webkit-font-smoothing:antialiased;}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:100;background:rgba(248,246,240,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:0 40px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Instrument Serif',serif;font-size:20px;letter-spacing:-.01em;}
+.logo em{color:var(--purple);font-style:italic;}
+.tabs{display:flex;gap:4px;}
+.tab-btn{padding:7px 18px;border-radius:20px;font-size:12.5px;cursor:pointer;border:1px solid transparent;background:transparent;font-family:inherit;font-weight:300;color:var(--ink-3);transition:all .15s;}
+.tab-btn:hover{color:var(--ink-2);border-color:var(--line);}
+.tab-btn.active{color:var(--purple);border-color:var(--purple);background:var(--purple-light);}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:400px 1fr;min-height:calc(100vh - 60px);}
+.left{border-right:1px solid var(--line);overflow-y:auto;max-height:calc(100vh - 60px);position:sticky;top:60px;}
+.left-inner{padding:32px 28px;}
+.panel-title{font-family:'Instrument Serif',serif;font-size:26px;font-weight:400;letter-spacing:-.02em;line-height:1.1;margin-bottom:6px;}
+.panel-title em{font-style:italic;color:var(--purple);}
+.panel-desc{font-size:12px;color:var(--ink-3);line-height:1.65;margin-bottom:28px;}
+
+/* ACCORDION */
+.acc-list{display:flex;flex-direction:column;gap:0;}
+.acc-item{border-bottom:1px solid var(--line);}
+.acc-item:first-child{border-top:1px solid var(--line);}
+
+.acc-head{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 0;cursor:pointer;user-select:none;
+  transition:background .1s;
+}
+.acc-head:hover .acc-name{color:var(--ink);}
+.acc-num{font-family:'Instrument Serif',serif;font-style:italic;font-size:12px;color:var(--purple);min-width:20px;}
+.acc-name{font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);flex:1;}
+.acc-val{font-size:11.5px;color:var(--purple);font-weight:500;max-width:160px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.acc-arrow{font-size:11px;color:var(--ink-3);margin-left:6px;transition:transform .2s;flex-shrink:0;}
+.acc-item.open .acc-arrow{transform:rotate(180deg);}
+
+.acc-body{display:none;padding-bottom:16px;}
+.acc-item.open .acc-body{display:block;}
+
+/* SUB-GROUPS */
+.sub-group{margin-bottom:14px;}
+.sub-label{font-size:10.5px;color:var(--ink-3);letter-spacing:.05em;margin-bottom:7px;padding-bottom:4px;border-bottom:1px dashed var(--line);}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:5px;}
+.chip{padding:5px 12px;border:1px solid var(--line);border-radius:20px;font-size:12px;cursor:pointer;background:var(--bg-2);color:var(--ink-2);transition:all .12s;font-family:inherit;font-weight:300;white-space:nowrap;}
+.chip:hover{border-color:var(--purple);color:var(--purple);}
+.chip.on{background:var(--purple);color:#fff;border-color:var(--purple);}
+.chip.multi.on{background:#F0FBF4;color:#1A6B3C;border-color:#5AC87A;}
+
+.reset-btn{margin-top:20px;font-size:12px;color:var(--ink-3);background:none;border:none;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
+.reset-btn:hover{color:var(--ink);}
+
+/* RIGHT */
+.right{padding:40px;display:flex;flex-direction:column;gap:20px;}
+.section-label{font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--line);}
+
+/* PROMPT AREA */
+.prompt-card{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+.prompt-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--line);}
+.prompt-mode{display:flex;gap:4px;}
+.mode-badge{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--line);color:var(--ink-3);cursor:pointer;transition:all .12s;}
+.mode-badge.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.reassemble-btn{font-size:11.5px;color:var(--purple);background:none;border:none;cursor:pointer;padding:3px 0;display:none;}
+.reassemble-btn.visible{display:block;}
+
+.prompt-textarea{
+  width:100%;min-height:200px;padding:24px;
+  font-family:'Noto Sans KR',sans-serif;font-size:20px;font-weight:300;
+  line-height:1.75;letter-spacing:-.01em;color:var(--ink);
+  border:none;resize:none;background:transparent;outline:none;
+}
+.prompt-textarea::placeholder{color:var(--ink-3);font-style:italic;}
+
+.prompt-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--line);}
+.char-count{font-size:12px;color:var(--ink-3);}
+.action-row{display:flex;gap:8px;}
+.btn{padding:8px 18px;border-radius:var(--r);font-size:13px;font-family:inherit;cursor:pointer;transition:all .12s;}
+.btn-outline{background:transparent;border:1px solid var(--line);color:var(--ink-2);}
+.btn-outline:hover{border-color:var(--ink-2);}
+.btn-fill{background:var(--purple);border:1px solid var(--purple);color:#fff;}
+.btn-fill:hover{background:var(--purple-mid);}
+
+/* SUMMARY GRID */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.s-block{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;}
+.s-key{font-size:10px;color:var(--ink-3);margin-bottom:3px;letter-spacing:.05em;}
+.s-val{font-size:12px;color:var(--ink);line-height:1.35;min-height:15px;}
+.s-val.empty{color:var(--ink-3);font-style:italic;}
+
+/* HISTORY */
+.history-list{display:flex;flex-direction:column;gap:8px;}
+.h-item{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:12.5px;color:var(--ink-2);line-height:1.55;cursor:pointer;transition:border-color .12s;position:relative;}
+.h-item:hover{border-color:var(--purple);}
+.h-cat{font-size:10.5px;color:var(--purple);font-weight:500;margin-bottom:4px;}
+.h-del{position:absolute;top:12px;right:12px;font-size:14px;color:var(--ink-3);cursor:pointer;padding:2px 6px;border-radius:3px;}
+.h-del:hover{color:#E24B4A;}
+.no-history{font-size:12px;color:var(--ink-3);font-style:italic;}
+
+@media(max-width:960px){
+  .layout{grid-template-columns:1fr;}
+  .left{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--line);}
+  .right{padding:24px;}
+  header{padding:0 20px;}
+  .summary-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">에잇퍼센트 <em>Prompt Builder</em></div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('obj')">오브제 그래픽</button>
+    <button class="tab-btn" onclick="switchTab('sc')">상황 묘사</button>
+  </div>
+</header>
+
+<div id="mode-obj" class="layout">
+  <aside class="left">
+    <div class="left-inner">
+      <h1 class="panel-title">블록을 고르면<br>문장이 <em>완성됩니다.</em></h1>
+      <p class="panel-desc">항목을 클릭해 펼치고, 원하는 표현을 선택하세요. 오른쪽에 프롬프트가 실시간으로 조립됩니다.</p>
+      <div class="acc-list" id="obj-acc"></div>
+      <button class="reset-btn" onclick="objReset()">전체 초기화</button>
+    </div>
+  </aside>
+  <main class="right">
+    <div class="section-label">완성된 프롬프트</div>
+    <div class="prompt-card">
+      <div class="prompt-toolbar">
+        <div class="prompt-mode" style="display:none;"></div>
+        <button class="reassemble-btn" id="obj-reassemble" onclick="objReassemble()">↺ 자동 조립으로 되돌리기</button>
+        <span></span>
+      </div>
+      <textarea class="prompt-textarea" id="obj-ta" placeholder="카테고리부터 선택해주세요." oninput="objDirty()" onkeyup="objCountUpdate()"></textarea>
+      <div class="prompt-footer">
+        <span class="char-count" id="obj-count">—</span>
+        <div class="action-row">
+          <button class="btn btn-outline" onclick="objSave()">저장</button>
+          <button class="btn btn-fill" id="obj-copy-btn" onclick="objCopy()">복사하기</button>
+        </div>
+      </div>
+    </div>
+    <div class="section-label">저장된 프롬프트</div>
+    <div class="history-list" id="obj-hist"><div class="no-history">저장된 프롬프트가 없습니다.</div></div>
+  </main>
+</div>
+
+<div id="mode-sc" class="layout" style="display:none;">
+  <aside class="left">
+    <div class="left-inner">
+      <h1 class="panel-title">장면을 설계하면<br>상황이 <em>완성됩니다.</em></h1>
+      <p class="panel-desc">야경에 미등기 건물만 빛나는 것처럼, 장면 전체로 메시지를 전달합니다.</p>
+      <div class="acc-list" id="sc-acc"></div>
+      <button class="reset-btn" onclick="scReset()">전체 초기화</button>
+    </div>
+  </aside>
+  <main class="right">
+    <div class="section-label">완성된 프롬프트</div>
+    <div class="prompt-card">
+      <div class="prompt-toolbar">
+        <div class="prompt-mode" style="display:none;"></div>
+        <button class="reassemble-btn" id="sc-reassemble" onclick="scReassemble()">↺ 자동 조립으로 되돌리기</button>
+        <span></span>
+      </div>
+      <textarea class="prompt-textarea" id="sc-ta" placeholder="배경 환경부터 선택해주세요." oninput="scDirty()" onkeyup="scCountUpdate()"></textarea>
+      <div class="prompt-footer">
+        <span class="char-count" id="sc-count">—</span>
+        <div class="action-row">
+          <button class="btn btn-outline" onclick="scSave()">저장</button>
+          <button class="btn btn-fill" id="sc-copy-btn" onclick="scCopy()">복사하기</button>
+        </div>
+      </div>
+    </div>
+    <div class="section-label">선택 요약</div>
+    <div class="summary-grid" id="sc-summary"></div>
+    <div class="section-label">저장된 프롬프트</div>
+    <div class="history-list" id="sc-hist"><div class="no-history">저장된 프롬프트가 없습니다.</div></div>
+  </main>
+</div>
+
+<script>
+/* ── TAB ── */
+function switchTab(m){
+  document.getElementById('mode-obj').style.display = m==='obj'?'grid':'none';
+  document.getElementById('mode-sc').style.display  = m==='sc' ?'grid':'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',(i===0&&m==='obj')||(i===1&&m==='sc')));
+}
+
+/* ═══════════════════════════════════════
+   DATA — 오브제
+═══════════════════════════════════════ */
+const OD = {
+  카테고리: { _flat:['대출','투자'] },
+  오브제: {
+    _dep:'카테고리',
+    대출:['보라색 열쇠','서류 위 승인 도장','집 + 퍼즐 조각','동전 더미 + 돋보기','체크 마크','열린 자물쇠','스마트폰 + 승인 화면','집 + 열쇠 묶음','지갑 + 동전','계약서 + 펜','저울 + 집 모형','부동산 등기부등본','대출 승인 알림 화면','시계 + 체크','금고 + 열린 문','인감 도장'],
+    투자:['우상향 선 그래프','균형 저울','순환하는 동전','층층이 쌓인 코인 타워','방패','씨앗 + 새싹','달력 + 코인','트로피','모래시계','복리 계산기','저금통','성장하는 나무','수익 게이지','금고','지도 + 목표 경로','동전 + 아이콘 그래프']
+  },
+  형태: {
+    '전체적 인상':['단순하고 한눈에 보이는 모양','깔끔한 모양','또렷한 실루엣','핵심만 보이는 형태','장식이 많지 않은 형태','묵직하고 안정감 있는 형태','가볍고 둥근 느낌의 형태','딱딱하지 않고 부드러운 형태','크고 존재감 있는 형태','고급스럽고 무게감 있는 형태','귀엽고 말랑한 느낌의 형태','힘 있고 단단해 보이는 형태','가볍게 떠 있는 느낌의 형태'],
+    '입체감':['납작하지 않고 입체감이 느껴지는 형태','두툼하고 볼륨감 있는 형태','속이 꽉 찬 느낌의 형태','앞으로 살짝 튀어나온 느낌의 형태','안이 비어있는 느낌의 형태','층이 나뉘어진 느낌의 형태','그림자가 자연스럽게 생기는 형태','두께가 느껴지는 형태'],
+    '비율·구조':['균형이 잘 잡힌 형태','좌우 대칭이 잘 맞는 형태','비대칭이지만 균형감 있는 형태','여러 요소가 겹쳐 있는 구성','중심에서 바깥으로 퍼지는 구성','위아래로 길쭉한 형태','좌우로 넓은 형태','큰 것과 작은 것이 함께 있는 구성'],
+    '디테일':['선이 많지 않고 면 위주의 형태','꼭 필요한 디테일만 남긴 형태','외곽선이 두껍고 뚜렷한 형태','외곽선이 없이 면으로만 이루어진 형태','새것처럼 깨끗하고 흠집 없는 형태','안쪽 구조가 보이는 형태']
+  },
+  구도: {
+    '시점·각도':['앞에서 바로 보는','살짝 비스듬히 보는','살짝 위에서 내려다보는','살짝 아래에서 올려다보는','비스듬히 45도 각도로 보는','옆에서 보는','뒤에서 살짝 돌아보는'],
+    '위치·배치':['가운데에 하나만 보이는','여백이 넉넉하게 느껴지는','오브제가 꽉 차 보이는','한쪽으로 치우치지 않고 고르게 배치된','살짝 위쪽에 배치된'],
+    '거리·요소':['가까이서 크게 보이는','멀리서 전체가 보이는','오브제 하나만 단독으로 보이는','두 개의 요소가 나란히 있는','여러 요소가 모여 하나처럼 보이는','앞뒤 원근감이 느껴지는']
+  },
+  빛: {
+    '밝기·강도':['전체적으로 밝고 환한 느낌','전체적으로 어둡고 차분한 느낌','은은하게 빛이 퍼져 있는 느낌','한 곳에서 강하게 빛이 비치는 느낌','밝은 부분과 어두운 부분의 차이가 큰 느낌'],
+    '방향':['위에서 아래로 빛이 내려오는 느낌','앞에서 정면으로 빛이 비치는 느낌','옆에서 비스듬히 빛이 들어오는 느낌','뒤에서 빛이 비쳐 테두리가 빛나는 느낌','사방에서 고르게 빛이 비치는 느낌','아래에서 위로 빛이 올라오는 느낌'],
+    '반사·효과':['은은하게 반짝이는 느낌','살짝 비치는 느낌','너무 번쩍이지 않는 느낌','자연스럽게 광택이 느껴지는 느낌','주변으로 은은한 빛 후광이 생기는 느낌','빛이 내부에서 새어 나오는 느낌'],
+    '그림자':['그림자가 없이 떠 있는 느낌','바닥에 그림자가 자연스럽게 생기는 느낌','그림자가 길게 늘어진 느낌','그림자가 짧고 뭉툭한 느낌']
+  },
+  표면: {
+    '질감·마감':['매끈하고 자연스럽게 광택이 느껴지는 느낌','아주 미세한 결이 있는 느낌','보송한 느낌','너무 매끈하지 않은 느낌','표면이 벨벳처럼 보드라운 느낌','표면에 미세한 점들이 촘촘히 박힌 느낌','표면에 얕은 줄무늬가 있는 느낌'],
+    '재질감':['금속처럼 단단하고 차가운 느낌','플라스틱처럼 가볍고 매끈한 느낌','고무처럼 탄성 있고 말랑한 느낌','도자기처럼 단단하고 섬세한 느낌','유리처럼 투명하고 깨질 것 같은 느낌','패브릭처럼 부드럽고 따뜻한 느낌'],
+    '광택·투명도':['안이 조금 비쳐 보이는 느낌','광택이 전혀 없고 완전히 매트한 느낌','거울처럼 주변이 비치는 느낌','뿌옇게 안이 살짝 보이는 느낌','광택이 부분적으로만 있는 느낌']
+  },
+  색상: {
+    '채도·농도':['색이 선명하고 채도가 높은 느낌','색이 연하고 파스텔톤인 느낌','색이 탁하고 무게감 있는 느낌','색이 진하고 깊이감 있는 느낌','색이 투명하고 가벼운 느낌'],
+    '색 조합':['브랜드 컬러 중심','한두 가지 색만 쓴 느낌','강조 색이 보이는 느낌','색이 과하지 않은 느낌','색이 자연스럽게 섞여 그라데이션이 있는 느낌','색의 경계가 뚜렷하게 나뉜 느낌','전체는 무채색이고 일부만 색이 있는 느낌'],
+    '톤·온도':['따뜻한 계열의 색으로 이루어진 느낌','차갑고 시원한 계열의 색','중립적인 색 느낌','전체적으로 밝고 가벼운 색 느낌','전체적으로 어둡고 무거운 색 느낌','포인트 색이 테두리에만 있는 느낌']
+  },
+  배경: {
+    '투명':['투명 PNG로','배경 없이 오브제만 단독으로','바닥 그림자도 없이 완전히 투명하게'],
+    '단색':['완전히 흰 배경','완전히 검은 배경','밝은 회색 배경','어두운 회색 배경','아이보리처럼 따뜻한 흰 배경'],
+    '그라데이션':['파스텔 그라데이션 배경','두 가지 색이 부드럽게 섞인 그라데이션 배경','위에서 아래로 색이 바뀌는 그라데이션 배경','한쪽 모서리에서 퍼지는 그라데이션 배경'],
+    '질감':['배경에 아주 미세한 노이즈가 있는 느낌','배경에 종이 같은 결이 느껴지는 느낌','배경 가장자리가 어둡고 중심이 밝은 느낌']
+  },
+  제외: { _flat:['글자','숫자','작은 장식','바닥 그림자','복잡한 배경','불필요한 요소','받침대','텍스트 라벨'], _multi:true }
+};
+
+const OBJ_STEPS = ['카테고리','오브제','형태','구도','빛','표면','색상','배경','제외'];
+const OBJ_LABELS = {카테고리:'카테고리',오브제:'오브제',형태:'형태',구도:'구도',빛:'빛',표면:'표면',색상:'색상',배경:'배경',제외:'제외 요소'};
+const OBJ_HINTS = {오브제:'카테고리 먼저', 제외:'복수 선택'};
+
+const objSt = {카테고리:[],오브제:[],형태:[],구도:[],빛:[],표면:[],색상:[],배경:[],제외:[]};
+const objOpen = {카테고리:true};
+let objDirtyFlag = false;
+const objHist = [];
+
+function objGetOpts(k){
+  const d = OD[k];
+  if(!d) return null;
+  if(d._flat) return {_flat: d._flat};
+  if(d._dep){
+    const cats = objSt[d._dep];
+    if(!cats.length) return null;
+    const all = cats.flatMap(c => d[c]||[]);
+    return {_flat:[...new Set(all)]};
+  }
+  return d;
+}
+
+function objRender(){
+  const acc = document.getElementById('obj-acc');
+  acc.innerHTML = OBJ_STEPS.map((k,idx)=>{
+    const isOpen = !!objOpen[k];
+    const opts = objGetOpts(k);
+    const disabled = OD[k]._dep && !objSt[OD[k]._dep].length;
+    const val = objSt[k].length ? objSt[k].join(' · ') : '';
+
+    let bodyHTML = '';
+    if(disabled){
+      bodyHTML = `<div style="font-size:12px;color:var(--ink-3);font-style:italic;padding:4px 0">카테고리를 먼저 선택해주세요.</div>`;
+    } else if(opts && opts._flat){
+      bodyHTML = `<div class="chips">${opts._flat.map(o=>{
+        const on = objSt[k].includes(o);
+        return `<div class="chip${on?' on':''}" onclick="objPick('${k}','${esc(o)}')">${o}</div>`;
+      }).join('')}</div>`;
+    } else if(opts){
+      bodyHTML = Object.entries(opts).map(([g,items])=>
+        `<div class="sub-group"><div class="sub-label">${g}</div><div class="chips">${items.map(o=>{
+          const on = objSt[k].includes(o);
+          return `<div class="chip${on?' on':''}" onclick="objPick('${k}','${esc(o)}')">${o}</div>`;
+        }).join('')}</div></div>`
+      ).join('');
+    }
+
+    return `<div class="acc-item${isOpen?' open':''}" id="obj-acc-${k}">
+      <div class="acc-head" onclick="objToggleAcc('${k}')">
+        <div class="acc-num">${String(idx+1).padStart(2,'0')}</div>
+        <div class="acc-name">${OBJ_LABELS[k]}${OBJ_HINTS[k]?` <span style="font-size:10px;color:var(--ink-3);font-weight:300;text-transform:none;letter-spacing:0">${OBJ_HINTS[k]}</span>`:''}</div>
+        ${val ? `<div class="acc-val">${val}</div>` : ''}
+        <div class="acc-arrow">▾</div>
+      </div>
+      <div class="acc-body">${bodyHTML}</div>
+    </div>`;
+  }).join('');
+  objUpdatePrompt();
+}
+
+function objToggleAcc(k){ objOpen[k]=!objOpen[k]; objRender(); }
+function objPick(k,v){
+  const a=objSt[k]; const i=a.indexOf(v);
+  i===-1?a.push(v):a.splice(i,1);
+  if(k==='카테고리') objSt.오브제=[];
+  objRender();
+}
+
+function objBuildPlain(){
+  const s=objSt;
+  if(!s.오브제.length) return '';
+  let p=[];
+  p.push(`${s.오브제.join(' · ')}을/를`);
+  if(s.형태.length) p.push(`${s.형태.join(' · ')}으로`);
+  if(s.구도.length) p.push(`${s.구도.join(' · ')} 느낌으로`);
+  let mid=[];
+  if(s.빛.length) mid.push(`빛은 ${s.빛.join(' · ')}`);
+  if(s.표면.length) mid.push(`표면은 ${s.표면.join(' · ')}`);
+  if(s.색상.length) mid.push(`색상은 ${s.색상.join(' · ')}`);
+  if(mid.length) p.push(mid.join(', '));
+  p.push(`배경은 ${s.배경.length?s.배경.join(' · '):'투명 PNG로'} 만들어줘`);
+  let txt = p.join(', ');
+  if(s.제외.length) txt+=`. ${s.제외.join('·')}는 제외해줘.`;
+  else txt+='.';
+  return txt;
+}
+
+function objUpdatePrompt(){
+  if(objDirtyFlag) return;
+  const ta=document.getElementById('obj-ta');
+  const txt=objBuildPlain();
+  ta.value=txt;
+  ta.placeholder = txt ? '' : '카테고리부터 선택해주세요.';
+  objCountUpdate();
+}
+function objCountUpdate(){
+  const ta=document.getElementById('obj-ta');
+  document.getElementById('obj-count').textContent = ta.value ? `${ta.value.length}자` : '—';
+  ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
+}
+function objDirty(){
+  objDirtyFlag=true;
+  document.getElementById('obj-reassemble').classList.add('visible');
+  objCountUpdate();
+}
+function objReassemble(){
+  objDirtyFlag=false;
+  document.getElementById('obj-reassemble').classList.remove('visible');
+  objUpdatePrompt();
+}
+function objCopy(){ const ta=document.getElementById('obj-ta'); if(!ta.value) return; navigator.clipboard.writeText(ta.value).then(()=>{ const b=document.getElementById('obj-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
+function objSave(){ const ta=document.getElementById('obj-ta'); if(!ta.value) return; objHist.unshift({cat:objSt.카테고리,obj:objSt.오브제,text:ta.value}); objRenderHist(); }
+function objRenderHist(){
+  const el=document.getElementById('obj-hist');
+  if(!objHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
+  el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objHist.splice(${i},1);objRenderHist()">×</span></div>`).join('');
+}
+function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); objDirtyFlag=false; document.getElementById('obj-reassemble').classList.remove('visible'); objRender(); }
+
+/* ═══════════════════════════════════════
+   DATA — 상황 묘사
+═══════════════════════════════════════ */
+const SD = {
+  환경: {
+    '도시·건축':['도시 야경','빌딩 숲 속','주택가 골목','아파트 단지 전경','오래된 빌딩 외관','건물 내부 공간','로비·복도','옥상에서 내려다보는 도시','고층 창문에서 바라본 도시','지하 주차장 공간'],
+    '자연·공간':['탁 트인 들판','산 위에서 내려다보는 풍경','바다가 보이는 창가','안개 속 공간','비 오는 거리','이른 새벽 공간','낙엽 덮인 골목','눈 쌓인 풍경'],
+    '추상 공간':['어두운 공간 속','그라데이션 배경 위','빛이 퍼지는 추상 공간','선들이 이어지는 추상 공간','공중에 떠 있는 느낌의 공간','깊이감 있는 터널 구조']
+  },
+  핵심요소: {
+    '빛·강조':['하나의 건물만 빛나는','한 개의 창문에만 불이 켜진','빛줄기가 한 곳으로 쏟아지는','어둠 속에서 하나만 선명하게 보이는','문 틈새로 빛이 새어나오는','주변은 어둡고 중심만 환한','건물 꼭대기에서만 빛이 나는','유리창 너머로 빛이 비치는'],
+    '움직임·변화':['문이 천천히 열리는','자물쇠가 풀리는 순간','계단을 올라가는 시점','빛이 점점 번져가는 장면','동전이 흘러들어가는 장면','무거운 것이 가벼워지는 장면','안개가 걷히는 장면'],
+    '대비·관계':['주변과 다르게 홀로 도드라진','나머지는 흐릿하고 하나만 선명한','꺼진 것들 사이에 혼자 켜진','낡은 것들 사이에 새것처럼 보이는','어두운 것들 속에 밝게 빛나는','빈 것들 사이에 가득 찬','멀리서 보면 작아 보이지만 실제론 웅장한']
+  },
+  시간대: { _flat:['야간 (어두운 밤)','황혼 (해질 녘)','새벽 (동이 트기 직전)','이른 아침 (해 뜬 직후)','한낮 (밝은 자연광)','흐린 낮 (구름 많은)','비 오는 날'] },
+  조명: {
+    '집중형':['한 곳에만 빛이 집중된','스포트라이트처럼 특정 부분만 밝은','나머지는 어둡고 하나만 빛나는','빛이 아래에서 위로 올라오는','실루엣만 보이도록 역광'],
+    '분위기형':['전체적으로 어둡고 차분한','따뜻한 황금빛이 은은하게 퍼진','차갑고 푸른빛이 감도는','안개처럼 빛이 번진','빛과 그림자가 교차하는','네온빛이 은은하게 번지는','창문을 통해 격자 그림자가 생기는']
+  },
+  색감: { _flat:['전체 어둡고 포인트만 따뜻한 황금빛','차갑고 어두운 청색 계열','보랏빛 도시 야경','따뜻한 앰버·오렌지 계열','차가운 무채색에 보라 포인트','새벽의 파랗고 고요한 색감','황혼의 분홍·보라 그라데이션','흑백에 가까운 저채도 색감','안개 속 뿌연 회색 색감','차갑고 습한 비 오는 날 색감'] },
+  앵글: { _flat:['아래에서 위로 올려다보는','위에서 아래로 내려다보는','거리 수준의 정면 시선','창문 너머로 바라보는','멀리서 전경을 바라보는','클로즈업으로 바짝 당긴','비스듬한 사선 구도','골목 끝에서 바라보는 원근감'] },
+  분위기: { _flat:['신비롭고 조용한','따뜻하고 희망적인','긴박하고 드라마틱한','쓸쓸하지만 아름다운','차갑고 긴장감 있는','평온하고 안도감 있는','웅장하고 압도적인','미래적이고 세련된','고즈넉하고 서정적인','낯설면서도 친숙한'] },
+  제외: { _flat:['글자·간판','사람 실루엣','자동차','과도한 장식','복잡한 전선·구조물','플래시·과한 빛 번짐','현수막','로고'], _multi:true }
+};
+
+const SC_STEPS = ['환경','핵심요소','시간대','조명','색감','앵글','분위기','제외'];
+const SC_LABELS = {환경:'배경 환경',핵심요소:'핵심 요소',시간대:'시간대',조명:'조명 처리',색감:'색감',앵글:'카메라 앵글',분위기:'분위기',제외:'제외 요소'};
+const SC_HINTS = {핵심요소:'가장 눈에 띌 것'};
+
+const scSt = {환경:[],핵심요소:[],시간대:[],조명:[],색감:[],앵글:[],분위기:[],제외:[]};
+const scOpen = {환경:true};
+let scDirtyFlag = false;
+const scHist = [];
+
+function scGetOpts(k){
+  const d = SD[k];
+  if(!d) return null;
+  if(d._flat) return {_flat:d._flat};
+  return d;
+}
+
+function scRender(){
+  const acc=document.getElementById('sc-acc');
+  acc.innerHTML=SC_STEPS.map((k,idx)=>{
+    const isOpen=!!scOpen[k];
+    const opts=scGetOpts(k);
+    const val=scSt[k].length?scSt[k].join(' · '):'';
+    let bodyHTML='';
+    if(opts&&opts._flat){
+      bodyHTML=`<div class="chips">${opts._flat.map(o=>{
+        const on=scSt[k].includes(o);
+        return `<div class="chip${on?' on':''}" onclick="scPick('${k}','${esc(o)}')">${o}</div>`;
+      }).join('')}</div>`;
+    } else if(opts){
+      bodyHTML=Object.entries(opts).map(([g,items])=>
+        `<div class="sub-group"><div class="sub-label">${g}</div><div class="chips">${items.map(o=>{
+          const on=scSt[k].includes(o);
+          return `<div class="chip${on?' on':''}" onclick="scPick('${k}','${esc(o)}')">${o}</div>`;
+        }).join('')}</div></div>`
+      ).join('');
+    }
+    return `<div class="acc-item${isOpen?' open':''}" id="sc-acc-${k}">
+      <div class="acc-head" onclick="scToggleAcc('${k}')">
+        <div class="acc-num">${String(idx+1).padStart(2,'0')}</div>
+        <div class="acc-name">${SC_LABELS[k]}${SC_HINTS[k]?` <span style="font-size:10px;color:var(--ink-3);font-weight:300;text-transform:none;letter-spacing:0">${SC_HINTS[k]}</span>`:''}</div>
+        ${val?`<div class="acc-val">${val}</div>`:''}
+        <div class="acc-arrow">▾</div>
+      </div>
+      <div class="acc-body">${bodyHTML}</div>
+    </div>`;
+  }).join('');
+  scUpdatePrompt();
+  scUpdateSummary();
+}
+
+function scToggleAcc(k){ scOpen[k]=!scOpen[k]; scRender(); }
+function scPick(k,v){
+  const a=scSt[k]; const i=a.indexOf(v);
+  i===-1?a.push(v):a.splice(i,1);
+  scRender();
+}
+
+function scBuildPlain(){
+  const s=scSt;
+  if(!s.환경.length&&!s.핵심요소.length) return '';
+  let p=[];
+  if(s.환경.length&&s.시간대.length) p.push(`${s.시간대.join(' · ')} ${s.환경.join(' · ')}을 배경으로`);
+  else if(s.환경.length) p.push(`${s.환경.join(' · ')}을 배경으로`);
+  if(s.핵심요소.length) p.push(`${s.핵심요소.join(' · ')} 장면`);
+  if(s.조명.length) p.push(`조명은 ${s.조명.join(' · ')}`);
+  if(s.색감.length) p.push(`색감은 ${s.색감.join(' · ')}`);
+  if(s.앵글.length) p.push(`${s.앵글.join(' · ')} 구도`);
+  if(s.분위기.length) p.push(`${s.분위기.join(' · ')} 느낌으로 만들어줘`);
+  else if(p.length) p[p.length-1]+=' 만들어줘';
+  let txt=p.join(', ');
+  if(s.제외.length) txt+=`. ${s.제외.join('·')}는 제외해줘.`;
+  else txt+='.';
+  return txt;
+}
+
+function scUpdatePrompt(){
+  if(scDirtyFlag) return;
+  const ta=document.getElementById('sc-ta');
+  const txt=scBuildPlain();
+  ta.value=txt;
+  scCountUpdate();
+}
+function scCountUpdate(){
+  const ta=document.getElementById('sc-ta');
+  document.getElementById('sc-count').textContent=ta.value?`${ta.value.length}자`:'—';
+  ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
+}
+function scDirty(){ scDirtyFlag=true; document.getElementById('sc-reassemble').classList.add('visible'); scCountUpdate(); }
+function scReassemble(){ scDirtyFlag=false; document.getElementById('sc-reassemble').classList.remove('visible'); scUpdatePrompt(); }
+function scCopy(){ const ta=document.getElementById('sc-ta'); if(!ta.value) return; navigator.clipboard.writeText(ta.value).then(()=>{ const b=document.getElementById('sc-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
+function scSave(){ const ta=document.getElementById('sc-ta'); if(!ta.value) return; scHist.unshift({env:scSt.환경,elem:scSt.핵심요소,text:ta.value}); scRenderHist(); }
+function scRenderHist(){
+  const el=document.getElementById('sc-hist');
+  if(!scHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
+  el.innerHTML=scHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(scHist[${i}].text)"><div class="h-cat">${[h.env,h.elem].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();scHist.splice(${i},1);scRenderHist()">×</span></div>`).join('');
+}
+function scUpdateSummary(){
+  const keys=[{k:'환경',l:'배경 환경'},{k:'핵심요소',l:'핵심 요소'},{k:'시간대',l:'시간대'},{k:'조명',l:'조명'},{k:'색감',l:'색감'},{k:'앵글',l:'앵글'},{k:'분위기',l:'분위기'},{k:'제외',l:'제외'}];
+  document.getElementById('sc-summary').innerHTML=keys.map(({k,l})=>{
+    const v=scSt[k].length?scSt[k].join(' · '):null;
+    return `<div class="s-block"><div class="s-key">${l}</div><div class="s-val${v?'':' empty'}">${v||'—'}</div></div>`;
+  }).join('');
+}
+function scReset(){ Object.keys(scSt).forEach(k=>{scSt[k]=[];}); scDirtyFlag=false; document.getElementById('sc-reassemble').classList.remove('visible'); scRender(); }
+
+/* ── UTIL ── */
+function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+/* ── INIT ── */
+objRender(); objRenderHist();
+scRender(); scRenderHist();
+</script>
+</body>
+</html>
