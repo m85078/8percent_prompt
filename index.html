@@ -240,7 +240,27 @@ const OBJ_HINTS = {오브제:'카테고리 먼저', 제외:'복수 선택'};
 
 const objSt = {카테고리:[],오브제:[],형태:[],구도:[],빛:[],표면:[],색상:[],배경:[],제외:[]};
 const objOpen = {카테고리:true};
+const HIST_STORAGE_KEY = 'eightpercent_prompt_builder_history_v1';
 const objHist = [];
+
+function loadStoredHistory(){
+  try{
+    const raw = localStorage.getItem(HIST_STORAGE_KEY);
+    if(!raw) return;
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed.obj)) objHist.splice(0,objHist.length,...parsed.obj);
+    if(Array.isArray(parsed.sc)) scHist.splice(0,scHist.length,...parsed.sc);
+  }catch(e){
+    console.warn('저장된 히스토리를 불러오지 못했습니다.', e);
+  }
+}
+function persistHistory(){
+  try{
+    localStorage.setItem(HIST_STORAGE_KEY, JSON.stringify({obj:objHist, sc:scHist}));
+  }catch(e){
+    console.warn('히스토리를 저장하지 못했습니다.', e);
+  }
+}
 
 function objGetOpts(k){
   const d = OD[k];
@@ -341,12 +361,13 @@ function objCombined(){
   return b?a+' '+b:a;
 }
 function objCopy(){ const t=objCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('obj-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({cat:objSt.카테고리.join('·'),obj:objSt.오브제.join('·'),text:t}); objRenderHist(); }
+function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({cat:objSt.카테고리.join('·'),obj:objSt.오브제.join('·'),text:t}); persistHistory(); objRenderHist(); }
 function objRenderHist(){
   const el=document.getElementById('obj-hist');
   if(!objHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
-  el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objHist.splice(${i},1);objRenderHist()">×</span></div>`).join('');
+  el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objDeleteHist(${i})">×</span></div>`).join('');
 }
+function objDeleteHist(i){ objHist.splice(i,1); persistHistory(); objRenderHist(); }
 function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); document.getElementById('obj-custom').value=''; objRender(); }
 
 /* ═══════════════════════════════════════
@@ -543,12 +564,13 @@ function scCombined(){
   return b?a+' '+b:a;
 }
 function scCopy(){ const t=scCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('sc-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({cat:scSt.카테고리.join('·'),env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); scRenderHist(); }
+function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({cat:scSt.카테고리.join('·'),env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); persistHistory(); scRenderHist(); }
 function scRenderHist(){
   const el=document.getElementById('sc-hist');
   if(!scHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
-  el.innerHTML=scHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(scHist[${i}].text)"><div class="h-cat">${[h.cat,h.env,h.elem].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();scHist.splice(${i},1);scRenderHist()">×</span></div>`).join('');
+  el.innerHTML=scHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(scHist[${i}].text)"><div class="h-cat">${[h.cat,h.env,h.elem].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();scDeleteHist(${i})">×</span></div>`).join('');
 }
+function scDeleteHist(i){ scHist.splice(i,1); persistHistory(); scRenderHist(); }
 function scUpdateSummary(){
   const keys=[{k:'환경',l:'배경 환경'},{k:'핵심요소',l:'핵심 요소'},{k:'시간대',l:'시간대'},{k:'조명',l:'조명'},{k:'색감',l:'색감'},{k:'앵글',l:'앵글'},{k:'분위기',l:'분위기'},{k:'제외',l:'제외'}];
   document.getElementById('sc-summary').innerHTML=keys.map(({k,l})=>{
@@ -562,6 +584,7 @@ function scReset(){ Object.keys(scSt).forEach(k=>{scSt[k]=[];}); document.getEle
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 /* ── INIT ── */
+loadStoredHistory();
 objRender(); objRenderHist();
 scRender(); scRenderHist();
 </script>
