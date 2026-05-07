@@ -53,6 +53,12 @@ header{position:sticky;top:0;z-index:100;background:var(--purple-dark);padding:0
 .chip{padding:5px 13px;border:1px solid var(--line);border-radius:20px;font-size:12px;cursor:pointer;background:var(--bg);color:var(--ink-2);transition:all .12s;font-family:inherit;font-weight:400;letter-spacing:-0.04em;white-space:nowrap;}
 .chip:hover{border-color:var(--purple);color:var(--purple);background:var(--purple-xlight);}
 .chip.on{background:var(--purple);color:#fff;border-color:var(--purple);font-weight:500;}
+.direct-row{display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
+.direct-input{min-width:0;flex:1;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2);padding:8px 10px;font-family:inherit;font-size:12px;color:var(--ink);letter-spacing:-0.04em;outline:none;}
+.direct-input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(103,65,233,.12);}
+.direct-add{border:1px solid var(--purple);border-radius:var(--r);background:var(--purple);color:#fff;padding:0 12px;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:-0.04em;cursor:pointer;}
+.custom-picked{margin-top:8px;}
+.custom-picked .chip{background:#fff;color:var(--purple);border-color:var(--purple-light);}
 
 .reset-btn{margin-top:24px;font-size:11.5px;color:var(--ink-3);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;opacity:.7;transition:opacity .15s;}
 .reset-btn:hover{opacity:1;color:var(--ink);}
@@ -91,6 +97,7 @@ header{position:sticky;top:0;z-index:100;background:var(--purple-dark);padding:0
 .h-item:hover{border-color:var(--purple);background:var(--purple-xlight);}
 .h-cat{font-size:10px;color:var(--purple);font-weight:600;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
 .h-cat::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--purple);flex-shrink:0;}
+.h-text{padding-right:18px;}
 .h-del{position:absolute;top:12px;right:12px;font-size:14px;color:var(--ink-3);cursor:pointer;padding:2px 6px;border-radius:3px;transition:color .12s;}
 .h-del:hover{color:#E24B4A;}
 .no-history{font-size:12px;color:var(--ink-3);font-style:italic;}
@@ -265,9 +272,18 @@ function loadStoredHistory(){
     const parsed = JSON.parse(raw);
     if(Array.isArray(parsed.obj)) objHist.splice(0,objHist.length,...parsed.obj);
     if(Array.isArray(parsed.sc)) scHist.splice(0,scHist.length,...parsed.sc);
+    ensureHistoryShape(objHist);
+    ensureHistoryShape(scHist);
   }catch(e){
     console.warn('저장된 히스토리를 불러오지 못했습니다.', e);
   }
+}
+function ensureHistoryShape(list){
+  let changed = false;
+  list.forEach(h=>{
+    if(!h.id){ h.id = makeHistId(); changed = true; }
+  });
+  if(changed) persistHistory();
 }
 function persistHistory(){
   try{
@@ -275,6 +291,17 @@ function persistHistory(){
   }catch(e){
     console.warn('히스토리를 저장하지 못했습니다.', e);
   }
+}
+function makeHistId(){ return `hist-${Date.now()}-${Math.random().toString(36).slice(2,9)}`; }
+function htmlEsc(s){
+  return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function historyCard(mode,h,i,meta){
+  return `<div class="h-item" onclick="navigator.clipboard.writeText(${mode}Hist[${i}].text)">
+    <div class="h-cat">${meta}</div>
+    <div class="h-text">${htmlEsc(h.text)}</div>
+    <span class="h-del" onclick="event.stopPropagation();${mode}DeleteHist(${i})">×</span>
+  </div>`;
 }
 
 function objGetOpts(k){
@@ -298,6 +325,19 @@ function objGetOpts(k){
   }
   return d;
 }
+function flatOptionValues(opts){
+  if(!opts) return [];
+  if(opts._flat) return opts._flat;
+  return Object.values(opts).flat();
+}
+function objDirectHTML(opts){
+  const optionValues = flatOptionValues(opts);
+  const customValues = objSt.오브제.filter(v=>!optionValues.includes(v));
+  return `<div class="direct-row">
+    <input class="direct-input" id="obj-direct-input" type="text" placeholder="목록에 없는 오브제 직접 입력" onkeydown="if(event.key==='Enter'){event.preventDefault();objAddDirectObject()}">
+    <button class="direct-add" type="button" onclick="objAddDirectObject()">추가</button>
+  </div>${customValues.length?`<div class="chips custom-picked">${customValues.map(v=>`<div class="chip on" onclick="objPick('오브제','${esc(v)}')">${htmlEsc(v)} ×</div>`).join('')}</div>`:''}`;
+}
 
 function objRender(){
   const acc = document.getElementById('obj-acc');
@@ -313,22 +353,23 @@ function objRender(){
     } else if(opts && opts._flat){
       bodyHTML = `<div class="chips">${opts._flat.map(o=>{
         const on = objSt[k].includes(o);
-        return `<div class="chip${on?' on':''}" onclick="objPick('${k}','${esc(o)}')">${o}</div>`;
+        return `<div class="chip${on?' on':''}" onclick="objPick('${k}','${esc(o)}')">${htmlEsc(o)}</div>`;
       }).join('')}</div>`;
     } else if(opts){
       bodyHTML = Object.entries(opts).map(([g,items])=>
         `<div class="sub-group"><div class="sub-label">${g}</div><div class="chips">${items.map(o=>{
           const on = objSt[k].includes(o);
-          return `<div class="chip${on?' on':''}" onclick="objPick('${k}','${esc(o)}')">${o}</div>`;
+          return `<div class="chip${on?' on':''}" onclick="objPick('${k}','${esc(o)}')">${htmlEsc(o)}</div>`;
         }).join('')}</div></div>`
       ).join('');
     }
+    if(k==='오브제' && !disabled) bodyHTML += objDirectHTML(opts);
 
     return `<div class="acc-item${isOpen?' open':''}" id="obj-acc-${k}">
       <div class="acc-head" onclick="objToggleAcc('${k}')">
         <div class="acc-num">${String(idx+1).padStart(2,'0')}</div>
         <div class="acc-name">${OBJ_LABELS[k]}${OBJ_HINTS[k]?` <span style="font-size:10px;color:var(--ink-3);font-weight:300;text-transform:none;letter-spacing:0">${OBJ_HINTS[k]}</span>`:''}</div>
-        ${val ? `<div class="acc-val">${val}</div>` : ''}
+        ${val ? `<div class="acc-val">${htmlEsc(val)}</div>` : ''}
         <div class="acc-arrow">▾</div>
       </div>
       <div class="acc-body">${bodyHTML}</div>
@@ -342,6 +383,15 @@ function objPick(k,v){
   const a=objSt[k]; const i=a.indexOf(v);
   i===-1?a.push(v):a.splice(i,1);
   if(k==='카테고리'){ objSt.메시지=[]; objSt.오브제=[]; }
+  objRender();
+}
+function objAddDirectObject(){
+  const input = document.getElementById('obj-direct-input');
+  if(!input) return;
+  const value = input.value.trim().replace(/\s+/g,' ').replace(/[<>"']/g,'');
+  if(!value) return;
+  if(!objSt.오브제.includes(value)) objSt.오브제.push(value);
+  objOpen.오브제 = true;
   objRender();
 }
 
@@ -386,13 +436,17 @@ function objCombined(){
   return b?a+' '+b:a;
 }
 function objCopy(){ const t=objCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('obj-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({cat:objSt.카테고리.join('·'),msg:objSt.메시지.join('·'),obj:objSt.오브제.join('·'),text:t}); persistHistory(); objRenderHist(); }
+function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({id:makeHistId(),cat:objSt.카테고리.join('·'),msg:objSt.메시지.join('·'),obj:objSt.오브제.join('·'),text:t}); persistHistory(); objRenderHist(); }
 function objRenderHist(){
   const el=document.getElementById('obj-hist');
   if(!objHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
-  el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.msg,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objDeleteHist(${i})">×</span></div>`).join('');
+  el.innerHTML=objHist.map((h,i)=>historyCard('obj',h,i,htmlEsc([h.cat,h.msg,h.obj].filter(Boolean).join(' · ')))).join('');
 }
-function objDeleteHist(i){ objHist.splice(i,1); persistHistory(); objRenderHist(); }
+function objDeleteHist(i){
+  objHist.splice(i,1);
+  persistHistory();
+  objRenderHist();
+}
 function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); document.getElementById('obj-custom').value=''; objRender(); }
 
 /* ═══════════════════════════════════════
@@ -605,13 +659,17 @@ function scCombined(){
   return b?a+' '+b:a;
 }
 function scCopy(){ const t=scCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('sc-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({cat:scSt.카테고리.join('·'),msg:scSt.메시지.join('·'),env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); persistHistory(); scRenderHist(); }
+function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({id:makeHistId(),cat:scSt.카테고리.join('·'),msg:scSt.메시지.join('·'),env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); persistHistory(); scRenderHist(); }
 function scRenderHist(){
   const el=document.getElementById('sc-hist');
   if(!scHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
-  el.innerHTML=scHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(scHist[${i}].text)"><div class="h-cat">${[h.cat,h.msg,h.env,h.elem].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();scDeleteHist(${i})">×</span></div>`).join('');
+  el.innerHTML=scHist.map((h,i)=>historyCard('sc',h,i,htmlEsc([h.cat,h.msg,h.env,h.elem].filter(Boolean).join(' · ')))).join('');
 }
-function scDeleteHist(i){ scHist.splice(i,1); persistHistory(); scRenderHist(); }
+function scDeleteHist(i){
+  scHist.splice(i,1);
+  persistHistory();
+  scRenderHist();
+}
 function scUpdateSummary(){
   const keys=[{k:'메시지',l:'전달 메시지'},{k:'환경',l:'배경 환경'},{k:'핵심요소',l:'핵심 요소'},{k:'시간대',l:'시간대'},{k:'조명',l:'조명'},{k:'색감',l:'색감'},{k:'앵글',l:'앵글'},{k:'분위기',l:'분위기'},{k:'제외',l:'제외'}];
   document.getElementById('sc-summary').innerHTML=keys.map(({k,l})=>{
