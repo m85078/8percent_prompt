@@ -193,6 +193,21 @@ function switchTab(m){
 ═══════════════════════════════════════ */
 const OD = {
   카테고리: { _flat:['대출','투자'] },
+  메시지: {
+    _dep:'카테고리',
+    대출:{
+      '빠른 승인':['승인 완료 체크 표시','즉시 켜지는 승인 알림','시계와 체크마크 조합','빠르게 열리는 문','도장이 선명하게 찍힌 서류','막힘없이 이어지는 진행선'],
+      '넉넉한 한도':['넓게 열리는 금고','가득 채워진 한도 게이지','여유롭게 확장되는 원형 그래프','커지는 숫자 대신 커지는 막대 형태','넓은 공간감이 느껴지는 구성','풍성하게 쌓인 동전과 집 모형'],
+      '주부·시니어도 가능':['쉽고 편안한 안내 화면','큰 체크 버튼이 있는 간단한 신청 화면','따뜻한 생활 공간 오브제','복잡하지 않은 서류 한 장','부드러운 집 실루엣과 체크','안정감 있는 둥근 형태'],
+      '간편 신청':['스마트폰 화면의 완료 상태','손쉬운 터치 흐름','단계가 적어 보이는 진행 표시','깔끔한 신청서와 체크','복잡한 서류가 정리되는 장면']
+    },
+    투자:{
+      '꾸준한 수익':['차곡차곡 쌓이는 코인','일정하게 올라가는 그래프','매달 채워지는 달력 칸','작은 빛들이 누적되는','안정적으로 성장하는 나무'],
+      '분산 투자':['여러 갈래로 나뉜 포트폴리오 조각','균형 잡힌 저울과 여러 코인','서로 다른 블록이 안정적으로 맞물린','여러 점이 연결된 네트워크','위험이 나뉘어 보이는 방패형 구성'],
+      '소액 시작':['작은 씨앗에서 시작되는 성장','작은 동전 하나가 커지는 흐름','작게 시작해 넓게 퍼지는 물결','가벼운 첫 발걸음 느낌','미니멀한 코인과 새싹'],
+      '안정성':['단단한 방패','흔들림 없는 기둥 형태','균형 잡힌 저울','잠금장치가 있는 금고','차분하고 신뢰감 있는 구조']
+    }
+  },
   오브제: {
     _dep:'카테고리',
     대출:['보라색 열쇠','서류 위 승인 도장','집 + 퍼즐 조각','동전 더미 + 돋보기','체크 마크','열린 자물쇠','스마트폰 + 승인 화면','집 + 열쇠 묶음','지갑 + 동전','계약서 + 펜','저울 + 집 모형','부동산 등기부등본','대출 승인 알림 화면','시계 + 체크','금고 + 열린 문','인감 도장'],
@@ -234,11 +249,11 @@ const OD = {
   제외: { _flat:['글자','숫자','작은 장식','바닥 그림자','복잡한 배경','불필요한 요소','받침대','텍스트 라벨'] }
 };
 
-const OBJ_STEPS = ['카테고리','오브제','형태','구도','빛','표면','색상','배경','제외'];
-const OBJ_LABELS = {카테고리:'카테고리',오브제:'오브제',형태:'형태',구도:'구도',빛:'빛',표면:'표면',색상:'색상',배경:'배경',제외:'제외 요소'};
-const OBJ_HINTS = {오브제:'카테고리 먼저', 제외:'복수 선택'};
+const OBJ_STEPS = ['카테고리','메시지','오브제','형태','구도','빛','표면','색상','배경','제외'];
+const OBJ_LABELS = {카테고리:'카테고리',메시지:'전달 메시지',오브제:'오브제',형태:'형태',구도:'구도',빛:'빛',표면:'표면',색상:'색상',배경:'배경',제외:'제외 요소'};
+const OBJ_HINTS = {메시지:'카테고리 맞춤', 오브제:'카테고리 먼저', 제외:'복수 선택'};
 
-const objSt = {카테고리:[],오브제:[],형태:[],구도:[],빛:[],표면:[],색상:[],배경:[],제외:[]};
+const objSt = {카테고리:[],메시지:[],오브제:[],형태:[],구도:[],빛:[],표면:[],색상:[],배경:[],제외:[]};
 const objOpen = {카테고리:true};
 const HIST_STORAGE_KEY = 'eightpercent_prompt_builder_history_v1';
 const objHist = [];
@@ -269,8 +284,17 @@ function objGetOpts(k){
   if(d._dep){
     const cats = objSt[d._dep];
     if(!cats.length) return null;
-    const all = cats.flatMap(c => d[c]||[]);
-    return {_flat:[...new Set(all)]};
+    const merged = {};
+    const flat = [];
+    cats.forEach(cat => {
+      const opts = d[cat];
+      if(Array.isArray(opts)) flat.push(...opts);
+      else if(opts) Object.entries(opts).forEach(([group,items])=>{
+        merged[group] = [...(merged[group]||[]), ...items];
+      });
+    });
+    if(Object.keys(merged).length) return merged;
+    return {_flat:[...new Set(flat)]};
   }
   return d;
 }
@@ -317,7 +341,7 @@ function objToggleAcc(k){ objOpen[k]=!objOpen[k]; objRender(); }
 function objPick(k,v){
   const a=objSt[k]; const i=a.indexOf(v);
   i===-1?a.push(v):a.splice(i,1);
-  if(k==='카테고리') objSt.오브제=[];
+  if(k==='카테고리'){ objSt.메시지=[]; objSt.오브제=[]; }
   objRender();
 }
 
@@ -333,6 +357,7 @@ function objBuildPlain(){
   if(s.표면.length) mid.push(`표면은 ${s.표면.join(' · ')}`);
   if(s.색상.length) mid.push(`색상은 ${s.색상.join(' · ')}`);
   if(mid.length) p.push(mid.join(', '));
+  if(s.메시지.length) p.push(`전달 메시지는 ${s.메시지.join(' · ')} 요소로 자연스럽게 드러나게`);
   p.push(`배경은 ${s.배경.length?s.배경.join(' · '):'투명 PNG로'} 만들어줘`);
   let txt = p.join(', ');
   if(s.제외.length) txt+=`. ${s.제외.join('·')}는 제외해줘.`;
@@ -361,11 +386,11 @@ function objCombined(){
   return b?a+' '+b:a;
 }
 function objCopy(){ const t=objCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('obj-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({cat:objSt.카테고리.join('·'),obj:objSt.오브제.join('·'),text:t}); persistHistory(); objRenderHist(); }
+function objSave(){ const t=objCombined(); if(!t) return; objHist.unshift({cat:objSt.카테고리.join('·'),msg:objSt.메시지.join('·'),obj:objSt.오브제.join('·'),text:t}); persistHistory(); objRenderHist(); }
 function objRenderHist(){
   const el=document.getElementById('obj-hist');
   if(!objHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
-  el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objDeleteHist(${i})">×</span></div>`).join('');
+  el.innerHTML=objHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(objHist[${i}].text)"><div class="h-cat">${[h.cat,h.msg,h.obj].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();objDeleteHist(${i})">×</span></div>`).join('');
 }
 function objDeleteHist(i){ objHist.splice(i,1); persistHistory(); objRenderHist(); }
 function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); document.getElementById('obj-custom').value=''; objRender(); }
@@ -375,6 +400,21 @@ function objReset(){ Object.keys(objSt).forEach(k=>{objSt[k]=[];}); document.get
 ═══════════════════════════════════════ */
 const SD = {
   카테고리: { _flat:['대출','투자'] },
+  메시지: {
+    _dep:'카테고리',
+    대출:{
+      '빠른 승인':['어둠 속에서 승인 불빛이 즉시 켜지는','닫힌 문이 빠르게 열리는','서류 위 체크 표시가 선명하게 떠오르는','막혀 있던 길이 한 번에 뚫리는','대기 시간이 짧아 보이는 빠른 빛의 흐름'],
+      '넉넉한 한도':['좁은 공간이 넓게 확장되는','작은 빛이 넓은 영역으로 퍼지는','게이지가 충분히 차오른 듯한','금고 문이 넓게 열리는','여유로운 공간감과 넓은 시야가 느껴지는'],
+      '주부·시니어도 가능':['따뜻하고 편안한 생활 공간이 중심인','복잡한 절차가 단순하게 정리되는','부드럽고 쉬운 안내 흐름이 보이는','차갑지 않고 안심되는 분위기의','일상적인 집 안 공간에서 해결감이 느껴지는'],
+      '간편 신청':['스마트폰에서 신청이 완료되는','복잡한 서류가 간단히 정리되는','짧은 단계들이 한 줄로 이어지는','터치 한 번으로 빛이 켜지는','신청 흐름이 막힘없이 이어지는']
+    },
+    투자:{
+      '꾸준한 수익':['작은 빛들이 시간에 따라 차곡차곡 쌓이는','일정한 리듬으로 그래프가 올라가는','달력 위에 성과가 누적되는','성장하는 나무가 안정적으로 자라는','쌓인 동전들이 은은하게 빛나는'],
+      '분산 투자':['여러 경로로 빛이 나뉘어 연결되는','다양한 블록이 균형 있게 배치되는','여러 지점이 안정적인 네트워크로 이어지는','위험이 나뉘어 분산되는 듯한','포트폴리오 조각들이 맞물리는'],
+      '소액 시작':['작은 씨앗에서 빛이 시작되는','작은 동전 하나에서 큰 물결이 퍼지는','작게 시작한 흐름이 넓게 확장되는','첫 시작이 가볍고 명확해 보이는','작은 점들이 모여 성장 곡선을 만드는'],
+      '안정성':['흔들림 없는 구조물이 중심에 있는','방패처럼 보호되는 느낌의','균형 잡힌 저울이 안정적으로 놓인','차분하고 신뢰감 있는 빛이 유지되는','단단한 기반 위에 성장 요소가 놓인']
+    }
+  },
   환경: {
     '도시·건축':['도시 야경','빌딩 숲 속','주택가 골목','아파트 단지 전경','오래된 빌딩 외관','건물 내부 공간','로비·복도','옥상에서 내려다보는 도시','고층 창문에서 바라본 도시','지하 주차장 공간'],
     '자연·공간':['탁 트인 들판','산 위에서 내려다보는 풍경','바다가 보이는 창가','안개 속 공간','비 오는 거리','이른 새벽 공간','낙엽 덮인 골목','눈 쌓인 풍경'],
@@ -453,11 +493,11 @@ const SD = {
   제외: { _flat:['글자·간판','사람 실루엣','자동차','과도한 장식','복잡한 전선·구조물','플래시·과한 빛 번짐','현수막','로고'] }
 };
 
-const SC_STEPS = ['카테고리','환경','핵심요소','시간대','조명','색감','앵글','분위기','제외'];
-const SC_LABELS = {카테고리:'카테고리',환경:'배경 환경',핵심요소:'핵심 요소',시간대:'시간대',조명:'조명 처리',색감:'색감',앵글:'카메라 앵글',분위기:'분위기',제외:'제외 요소'};
-const SC_HINTS = {핵심요소:'카테고리 맞춤',시간대:'카테고리 맞춤',조명:'카테고리 맞춤',색감:'카테고리 맞춤',분위기:'카테고리 맞춤'};
+const SC_STEPS = ['카테고리','메시지','환경','핵심요소','시간대','조명','색감','앵글','분위기','제외'];
+const SC_LABELS = {카테고리:'카테고리',메시지:'전달 메시지',환경:'배경 환경',핵심요소:'핵심 요소',시간대:'시간대',조명:'조명 처리',색감:'색감',앵글:'카메라 앵글',분위기:'분위기',제외:'제외 요소'};
+const SC_HINTS = {메시지:'카테고리 맞춤',핵심요소:'카테고리 맞춤',시간대:'카테고리 맞춤',조명:'카테고리 맞춤',색감:'카테고리 맞춤',분위기:'카테고리 맞춤'};
 
-const scSt = {카테고리:[],환경:[],핵심요소:[],시간대:[],조명:[],색감:[],앵글:[],분위기:[],제외:[]};
+const scSt = {카테고리:[],메시지:[],환경:[],핵심요소:[],시간대:[],조명:[],색감:[],앵글:[],분위기:[],제외:[]};
 const scOpen = {카테고리:true};
 const scHist = [];
 
@@ -522,7 +562,7 @@ function scToggleAcc(k){ scOpen[k]=!scOpen[k]; scRender(); }
 function scPick(k,v){
   const a=scSt[k]; const i=a.indexOf(v);
   i===-1?a.push(v):a.splice(i,1);
-  if(k==='카테고리') scSt.핵심요소=[];
+  if(k==='카테고리'){ scSt.메시지=[]; scSt.핵심요소=[]; }
   scRender();
 }
 
@@ -533,6 +573,7 @@ function scBuildPlain(){
   if(s.환경.length&&s.시간대.length) p.push(`${s.시간대.join(' · ')} ${s.환경.join(' · ')}을 배경으로`);
   else if(s.환경.length) p.push(`${s.환경.join(' · ')}을 배경으로`);
   if(s.핵심요소.length) p.push(`${s.핵심요소.join(' · ')} 장면`);
+  if(s.메시지.length) p.push(`전달 메시지는 ${s.메시지.join(' · ')} 요소로 자연스럽게 드러나게`);
   if(s.조명.length) p.push(`조명은 ${s.조명.join(' · ')}`);
   if(s.색감.length) p.push(`색감은 ${s.색감.join(' · ')}`);
   if(s.앵글.length) p.push(`${s.앵글.join(' · ')} 구도`);
@@ -564,15 +605,15 @@ function scCombined(){
   return b?a+' '+b:a;
 }
 function scCopy(){ const t=scCombined(); if(!t) return; navigator.clipboard.writeText(t).then(()=>{ const b=document.getElementById('sc-copy-btn'); b.textContent='복사됨 ✓'; setTimeout(()=>b.textContent='복사하기',1500); }); }
-function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({cat:scSt.카테고리.join('·'),env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); persistHistory(); scRenderHist(); }
+function scSave(){ const t=scCombined(); if(!t) return; scHist.unshift({cat:scSt.카테고리.join('·'),msg:scSt.메시지.join('·'),env:scSt.환경.join('·'),elem:scSt.핵심요소.join('·'),text:t}); persistHistory(); scRenderHist(); }
 function scRenderHist(){
   const el=document.getElementById('sc-hist');
   if(!scHist.length){el.innerHTML='<div class="no-history">저장된 프롬프트가 없습니다.</div>';return;}
-  el.innerHTML=scHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(scHist[${i}].text)"><div class="h-cat">${[h.cat,h.env,h.elem].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();scDeleteHist(${i})">×</span></div>`).join('');
+  el.innerHTML=scHist.map((h,i)=>`<div class="h-item" onclick="navigator.clipboard.writeText(scHist[${i}].text)"><div class="h-cat">${[h.cat,h.msg,h.env,h.elem].filter(Boolean).join(' · ')}</div>${h.text}<span class="h-del" onclick="event.stopPropagation();scDeleteHist(${i})">×</span></div>`).join('');
 }
 function scDeleteHist(i){ scHist.splice(i,1); persistHistory(); scRenderHist(); }
 function scUpdateSummary(){
-  const keys=[{k:'환경',l:'배경 환경'},{k:'핵심요소',l:'핵심 요소'},{k:'시간대',l:'시간대'},{k:'조명',l:'조명'},{k:'색감',l:'색감'},{k:'앵글',l:'앵글'},{k:'분위기',l:'분위기'},{k:'제외',l:'제외'}];
+  const keys=[{k:'메시지',l:'전달 메시지'},{k:'환경',l:'배경 환경'},{k:'핵심요소',l:'핵심 요소'},{k:'시간대',l:'시간대'},{k:'조명',l:'조명'},{k:'색감',l:'색감'},{k:'앵글',l:'앵글'},{k:'분위기',l:'분위기'},{k:'제외',l:'제외'}];
   document.getElementById('sc-summary').innerHTML=keys.map(({k,l})=>{
     const v=scSt[k].length?scSt[k].join(' · '):null;
     return `<div class="s-block"><div class="s-key">${l}</div><div class="s-val${v?'':' empty'}">${v||'—'}</div></div>`;
